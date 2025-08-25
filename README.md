@@ -74,10 +74,14 @@ Environment:
 ```bash
 export WORKER_SK_HEX=<64-hex seckey>             # required: secp256k1 private key
 export DEVICE_DID='did:peaq:DEVICE123'          # optional
-export AGGREGATOR_URL='http://localhost:8080/receipts'  # defaults to localhost
+export AGGREGATOR_URL='http://localhost:8081/verify'    # point to the verifier by default
+export AUTOTUNE_TARGET_MS=300                            # optional
+export AUTOTUNE_PRESETS="512,512,512;1024,1024,1024"   # optional
+export AUTOTUNE_DISABLE=0                                # set 1 to skip tuning (use 1024^3)
+export WORKER_DEBUG_RECEIPT=0                            # set 1 to print full receipt
 ```
 
-Quick test without a local aggregator:
+Quick test without a local verifier (uses httpbin echo):
 
 ```bash
 export WORKER_SK_HEX=...
@@ -99,6 +103,12 @@ ok nonce=123 ms=456 work_root=abcd...
 
 Press Ctrl-C to stop.
 
+### Signing and verification
+
+- The worker computes a stable JSON of the `WorkReceipt` with `sig_hex` blank, hashes with BLAKE3, then SHA-256, and signs the prehash (secp256k1).
+- The verifier recomputes the same digest and verifies the signature against a configured public key.
+- Signature encodings supported: DER or 64-byte compact.
+
 ### Verifier (Node.js)
 
 A tiny verifier HTTP service you can deploy alongside your aggregator for light checks.
@@ -113,7 +123,7 @@ npm start
 curl -s http://localhost:8081/healthz
 ```
 
-Verify a receipt (schema + format + BLAKE3 of JSON-without-sig):
+Verify a receipt (schema/format + digest of JSON-without-sig):
 
 ```bash
 curl -s -X POST http://localhost:8081/verify \
@@ -132,7 +142,24 @@ curl -s -X POST http://localhost:8081/verify \
   }'
 ```
 
-Extend it to fully verify signatures by recovering/verifying secp256k1 signatures against a known key registry.
+Environment:
+```bash
+export VERIFY_PUBKEY=<hex pubkey>   # 33B compressed or 65B uncompressed
+export VERIFY_DISABLE=0             # set 1 to bypass signature checks
+export PORT=8081
+```
+
+Typical flow:
+```bash
+# 1) Run worker once to print pubkey
+export WORKER_SK_HEX=... && cargo run --release | head -n 20
+# Note pubkey(compressed)=...
+# 2) Start verifier with VERIFY_PUBKEY
+cd verifier && VERIFY_PUBKEY=<hex> npm start
+# 3) Point worker to verifier
+export AGGREGATOR_URL=http://localhost:8081/verify
+cargo run --release
+```
 
 ### Security and validation notes
 
