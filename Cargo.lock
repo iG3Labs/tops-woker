@@ -272,6 +272,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cudarc"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9395df0cab995685664e79cc35ad6302bf08fb9c5d82301875a183affe1278b1"
+
+[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1795,6 +1801,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blake3",
+ "cudarc",
  "hex",
  "k256",
  "ocl",
@@ -1803,6 +1810,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 1.0.69",
  "tokio",
 ]

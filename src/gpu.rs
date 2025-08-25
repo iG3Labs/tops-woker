@@ -26,7 +26,7 @@ impl GpuExec {
         if let Some(v) = tm.as_deref() { opts.push_str(&format!(" -D TM={} ", v)); }
         if let Some(v) = tn.as_deref() { opts.push_str(&format!(" -D TN={} ", v)); }
         if let Some(v) = tk.as_deref() { opts.push_str(&format!(" -D TK={} ", v)); }
-        let prog = Program::builder().src(GEMM_INT8).cmplr_defines(opts).build(&ctx)?;
+        let prog = Program::builder().src(GEMM_INT8).cmplr_opt(opts).build(&ctx)?;
         Ok(Self { ctx, q, prog })
     }
 
@@ -42,19 +42,25 @@ impl GpuExec {
         let buf_b: Buffer<i8> = Buffer::builder().queue(self.q.clone()).len(len_b).copy_host_slice(b).build()?;
         let buf_y: Buffer<i8> = Buffer::builder().queue(self.q.clone()).len(len_y).build()?;
 
-        let mut kb = Kernel::builder()
-            .program(&self.prog).name("gemm_int8_relu_q")
-            .queue(self.q.clone())
-            .global_work_size([m, n])
-            .arg(&buf_a).arg(&buf_b).arg(&buf_y)
-            .arg(&(m as i32)).arg(&(n as i32)).arg(&(k as i32))
-            .arg(&(lda as i32)).arg(&(ldb as i32)).arg(&(ldy as i32))
-            .arg(&scale_num).arg(&scale_den)
-            ;
-        if let (Ok(wm), Ok(wn)) = (std::env::var("WG_M").and_then(|v| v.parse::<usize>().map_err(|_| std::env::VarError::NotPresent)),
-                                     std::env::var("WG_N").and_then(|v| v.parse::<usize>().map_err(|_| std::env::VarError::NotPresent))) {
-            kb = kb.local_work_size([wm, wn]);
-        }
+        let mi = m as i32;
+        let ni = n as i32;
+        let ki = k as i32;
+        let ldai = lda as i32;
+        let ldbi = ldb as i32;
+        let ldyi = ldy as i32;
+
+        let mut kb = Kernel::builder();
+        kb.program(&self.prog).name("gemm_int8_relu_q");
+        kb.queue(self.q.clone());
+        kb.global_work_size([m, n]);
+        kb.arg(&buf_a).arg(&buf_b).arg(&buf_y);
+        kb.arg(&mi).arg(&ni).arg(&ki);
+        kb.arg(&ldai).arg(&ldbi).arg(&ldyi);
+        kb.arg(&scale_num).arg(&scale_den);
+        if let (Some(wm), Some(wn)) = (
+            std::env::var("WG_M").ok().and_then(|v| v.parse::<usize>().ok()),
+            std::env::var("WG_N").ok().and_then(|v| v.parse::<usize>().ok()),
+        ) { kb.local_work_size([wm, wn]); }
         let kernel = kb.build()?;
 
         unsafe { kernel.enq()?; }
