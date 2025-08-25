@@ -143,6 +143,7 @@ curl -s -X POST http://localhost:8081/verify \
 ```
 
 Environment:
+
 ```bash
 export VERIFY_PUBKEY=<hex pubkey>   # 33B compressed or 65B uncompressed
 export VERIFY_DISABLE=0             # set 1 to bypass signature checks
@@ -150,6 +151,7 @@ export PORT=8081
 ```
 
 Typical flow:
+
 ```bash
 # 1) Run worker once to print pubkey
 export WORKER_SK_HEX=... && cargo run --release | head -n 20
@@ -172,6 +174,27 @@ cargo run --release
 - Matrix sizes `m, n, k` in `src/main.rs` under `Sizes`.
 - `scale_num/scale_den` quantization parameters in `src/attempt.rs`.
 - Global work size currently `[m, n]`; tuning local sizes and tiling inside the kernel can yield large speedups.
+
+### CUDA backend (NVIDIA)
+
+An experimental CUDA backend using `cudarc` + cuBLASLt int8 GEMM is available.
+
+Prerequisites:
+
+- NVIDIA driver + CUDA Toolkit installed. Ensure `cuda.h` is present under `$CUDA_ROOT/include/cuda.h`.
+- Set `CUDA_ROOT` if autodetection fails, e.g. `export CUDA_ROOT=/usr/local/cuda`.
+
+Build and run with CUDA:
+
+```bash
+export CUDA_ROOT=/usr/local/cuda                              # adjust if needed
+cargo run --release --features cuda
+```
+
+Notes:
+
+- On non-NVIDIA systems, omit `--features cuda` and the OpenCL path will be used.
+- The CUDA path uses cuBLASLt int8 GEMM with ReLU epilogue for peak performance where supported.
 
 ### Pseudocode
 

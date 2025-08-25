@@ -1,9 +1,11 @@
 mod types; mod prng; mod cl_kernels; mod gpu; mod attempt; mod signing;
+#[cfg(feature = "cuda")] mod gpu_cuda;
 
 use hex::ToHex;
 use types::{WorkReceipt, Sizes};
 use attempt::run_attempt;
 use gpu::GpuExec;
+#[cfg(feature = "cuda")] use gpu_cuda::CudaExec;
 use signing::Secp;
 
 fn parse_target_ms() -> u64 {
@@ -65,6 +67,21 @@ async fn main() -> anyhow::Result<()> {
 
     // Autotuner: sizes are determined after GPU initialization below.
 
+    #[cfg(feature = "cuda")]
+    let gpu = match CudaExec::new() {
+        Ok(g) => g,
+        Err(e) => {
+            #[cfg(feature="cpu-fallback")]
+            {
+                eprintln!("[WARN] GPU not found, build with --features cpu-fallback and use CPU path.");
+                std::process::exit(1);
+            }
+            #[cfg(not(feature="cpu-fallback"))]
+            { return Err(e); }
+        }
+    };
+
+    #[cfg(not(feature = "cuda"))]
     let gpu = match GpuExec::new() {
         Ok(g) => g,
         Err(e) => {
