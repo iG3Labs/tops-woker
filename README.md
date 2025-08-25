@@ -173,7 +173,10 @@ cargo run --release
 
 - Matrix sizes `m, n, k` in `src/main.rs` under `Sizes`.
 - `scale_num/scale_den` quantization parameters in `src/attempt.rs`.
-- Global work size currently `[m, n]`; tuning local sizes and tiling inside the kernel can yield large speedups.
+- OpenCL tuning envs:
+  - `WG_M`, `WG_N`: set local work-group size (e.g., 16 16)
+  - `TM`, `TN`, `TK`: kernel tiling factors (currently K strip-mining via `TK`)
+- CUDA path uses cuBLASLt; tune via cuBLASLt configs (future work).
 
 ### CUDA backend (NVIDIA)
 

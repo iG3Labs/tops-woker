@@ -18,7 +18,15 @@ impl GpuExec {
             .ok_or_else(|| anyhow!("No GPU device found"))?;
         let ctx = Context::builder().platform(platform).devices(device.clone()).build()?;
         let q = Queue::new(&ctx, device, None)?;
-        let prog = Program::builder().src(GEMM_INT8).build(&ctx)?;
+        // Optional kernel build options for tuning (TM,TN,TK)
+        let tm = std::env::var("TM").ok();
+        let tn = std::env::var("TN").ok();
+        let tk = std::env::var("TK").ok();
+        let mut opts = String::new();
+        if let Some(v) = tm.as_deref() { opts.push_str(&format!(" -D TM={} ", v)); }
+        if let Some(v) = tn.as_deref() { opts.push_str(&format!(" -D TN={} ", v)); }
+        if let Some(v) = tk.as_deref() { opts.push_str(&format!(" -D TK={} ", v)); }
+        let prog = Program::builder().src(GEMM_INT8).cmplr_defines(opts).build(&ctx)?;
         Ok(Self { ctx, q, prog })
     }
 
@@ -34,7 +42,7 @@ impl GpuExec {
         let buf_b: Buffer<i8> = Buffer::builder().queue(self.q.clone()).len(len_b).copy_host_slice(b).build()?;
         let buf_y: Buffer<i8> = Buffer::builder().queue(self.q.clone()).len(len_y).build()?;
 
-        let kernel = Kernel::builder()
+        let mut kb = Kernel::builder()
             .program(&self.prog).name("gemm_int8_relu_q")
             .queue(self.q.clone())
             .global_work_size([m, n])
@@ -42,7 +50,12 @@ impl GpuExec {
             .arg(&(m as i32)).arg(&(n as i32)).arg(&(k as i32))
             .arg(&(lda as i32)).arg(&(ldb as i32)).arg(&(ldy as i32))
             .arg(&scale_num).arg(&scale_den)
-            .build()?;
+            ;
+        if let (Ok(wm), Ok(wn)) = (std::env::var("WG_M").and_then(|v| v.parse::<usize>().map_err(|_| std::env::VarError::NotPresent)),
+                                     std::env::var("WG_N").and_then(|v| v.parse::<usize>().map_err(|_| std::env::VarError::NotPresent))) {
+            kb = kb.local_work_size([wm, wn]);
+        }
+        let kernel = kb.build()?;
 
         unsafe { kernel.enq()?; }
         self.q.finish()?;

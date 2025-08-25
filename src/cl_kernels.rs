@@ -1,4 +1,13 @@
 pub const GEMM_INT8: &str = r#"
+#ifndef TM
+#define TM 1
+#endif
+#ifndef TN
+#define TN 1
+#endif
+#ifndef TK
+#define TK 1
+#endif
 __kernel void gemm_int8_relu_q(
     __global const char* A,   // int8: M x K
     __global const char* B,   // int8: K x N
@@ -12,10 +21,14 @@ __kernel void gemm_int8_relu_q(
     if (row >= M || col >= N) return;
 
     int acc = 0;
-    for (int t = 0; t < K; ++t) {
-        int a = (int)A[row*lda + t];
-        int b = (int)B[t*ldb + col];
-        acc += a * b;
+    // simple strip-mined loop over K with TK tile (placeholder for future local-mem tiling)
+    for (int t0 = 0; t0 < K; t0 += TK) {
+        int tend = min(K, t0 + TK);
+        for (int t = t0; t < tend; ++t) {
+            int a = (int)A[row*lda + t];
+            int b = (int)B[t*ldb + col];
+            acc += a * b;
+        }
     }
     // Requantize to int8 with ReLU
     long tmp = ((long)acc * (long)scale_num) / (long)scale_den;
