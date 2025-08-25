@@ -15,6 +15,7 @@ This yields a small commitment (`work_root`) to a large amount of compute, makin
 ### Determinism model
 
 All randomness is derived deterministically:
+
 - Seed derivation: the 16-byte seed is `BLAKE3(prev_hash || nonce)[..16]` implemented in `derive_seed` in `src/prng.rs`.
 - Input activations `A` are generated using `DPrng` (Xoshiro128++ seeded by the 16-byte seed).
 - Weights `W1`, `W2` are pseudo-fixed: derived from `BLAKE3("FIXED_WEIGHTS_V1")` inside `src/attempt.rs`. For a real deployment, you would ship audited constant weights.
@@ -26,14 +27,16 @@ Given the same `(prev_hash, nonce)` and sizes, `work_root` is deterministic acro
 
 Let sizes be \(m, n, k\); by default `m=n=k=1024`.
 
-1) First layer:
+1. First layer:
+
    - Compute \(Y_1 = \text{ReLU}(A \cdot W_1)\) with int8 inputs and int8 outputs.
    - After the int32 accumulation, we requantize with a fixed rational scale `scale_num/scale_den` back to int8 with clamping to [-128, 127].
 
-2) Second layer:
+2. Second layer:
+
    - Compute \(Y_2 = \text{ReLU}(Y_1 \cdot W_2)\) with the same quantization scheme.
 
-3) Sampling and work root:
+3. Sampling and work root:
    - Deterministically choose `S = 256` positions of `Y_2` and collect those int8 values as bytes.
    - `work_root = BLAKE3(sample_bytes || m || n || k)`.
 
@@ -52,6 +55,7 @@ This is implemented by the OpenCL kernel `gemm_int8_relu_q` in `src/cl_kernels.r
 ### OpenCL and device selection
 
 The worker uses the `ocl` crate. On startup we:
+
 - pick the default platform (`Platform::default()`),
 - enumerate GPU devices only via `Device::list(platform, Some(DEVICE_TYPE_GPU))`,
 - build a `Context`, `Queue`, and `Program` from inlined kernel source.
@@ -61,10 +65,12 @@ If no GPU is found, run with `--features cpu-fallback` to use the CPU path (plac
 ### Running the worker
 
 Prerequisites:
+
 - Rust toolchain (Rust 1.76+ recommended).
 - OpenCL runtime/driver installed (NVIDIA, AMD, Intel or POCL).
 
 Environment:
+
 ```bash
 export WORKER_SK_HEX=<64-hex seckey>             # required: secp256k1 private key
 export DEVICE_DID='did:peaq:DEVICE123'          # optional
@@ -72,22 +78,61 @@ export AGGREGATOR_URL='http://localhost:8080/receipts'  # defaults to localhost
 ```
 
 Quick test without a local aggregator:
+
 ```bash
-export WORKER_SK_HEX=... 
+export WORKER_SK_HEX=...
 export AGGREGATOR_URL='https://httpbin.org/post'
 cargo run --release
 ```
 
 CPU fallback:
+
 ```bash
 cargo run --release --features cpu-fallback
 ```
 
 The program runs in a loop and prints lines like:
+
 ```
 ok nonce=123 ms=456 work_root=abcd...
 ```
+
 Press Ctrl-C to stop.
+
+### Verifier (Node.js)
+
+A tiny verifier HTTP service you can deploy alongside your aggregator for light checks.
+
+Run locally:
+
+```bash
+cd verifier
+npm install
+npm start
+# listens on :8081
+curl -s http://localhost:8081/healthz
+```
+
+Verify a receipt (schema + format + BLAKE3 of JSON-without-sig):
+
+```bash
+curl -s -X POST http://localhost:8081/verify \
+  -H 'content-type: application/json' \
+  -d '{
+    "device_did":"did:peaq:DEVICE123",
+    "epoch_id":1,
+    "prev_hash_hex":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "nonce":1,
+    "work_root_hex":"...",
+    "sizes": {"m":1536,"n":1536,"k":1536,"batch":1},
+    "time_ms":180,
+    "kernel_ver":"gemm_int8_relu_q_v1",
+    "driver_hint":"OpenCL",
+    "sig_hex":""
+  }'
+```
+
+Extend it to fully verify signatures by recovering/verifying secp256k1 signatures against a known key registry.
 
 ### Security and validation notes
 
@@ -130,5 +175,3 @@ post(aggregator_url, receipt + sig)
 ### License
 
 Apache-2.0 or MIT (choose one and update if needed).
-
-
