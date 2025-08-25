@@ -1,6 +1,7 @@
 import express from "express";
 import morgan from "morgan";
 import { blake3 } from "@noble/hashes/blake3";
+import { sha256 } from "@noble/hashes/sha256";
 import { secp256k1 } from "@noble/curves/secp256k1";
 
 const app = express();
@@ -8,6 +9,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
 const VERIFY_PUBKEY = process.env.VERIFY_PUBKEY || ""; // hex (compressed or uncompressed)
+const VERIFY_DISABLE = process.env.VERIFY_DISABLE === "1";
 
 // Minimal schema check
 function isValidReceipt(r) {
@@ -44,27 +46,19 @@ function hexToBytes(hex) {
 function computeMessageDigest(receipt) {
   const copy = { ...receipt, sig_hex: "" };
   const msg = new TextEncoder().encode(JSON.stringify(copy));
-  return blake3(msg);
+  const b3 = blake3(msg);
+  return sha256(b3);
 }
 
-function parseSignature(sigHex) {
+function parseSignatureBytes(sigHex) {
   const bytes = hexToBytes(sigHex);
-  // Try DER
+  // Try DER -> convert to compact raw bytes for verify()
   try {
-    return { kind: "der", obj: secp256k1.Signature.fromDER(bytes) };
+    const sigObj = secp256k1.Signature.fromDER(bytes);
+    return sigObj.toCompactRawBytes();
   } catch {}
-  // Try compact 64B (r||s)
-  if (bytes.length === 64) {
-    const r = bytes.slice(0, 32);
-    const s = bytes.slice(32, 64);
-    return {
-      kind: "compact",
-      obj: new secp256k1.Signature(
-        BigInt("0x" + Buffer.from(r).toString("hex")),
-        BigInt("0x" + Buffer.from(s).toString("hex"))
-      ),
-    };
-  }
+  // If already compact 64B, accept as-is
+  if (bytes.length === 64) return bytes;
   throw new Error("unsupported signature encoding");
 }
 
@@ -104,10 +98,12 @@ app.post("/verify", async (req, res) => {
 
     let sigOk = false;
     let pubHexUsed = null;
-    if (VERIFY_PUBKEY) {
+    if (VERIFY_DISABLE) {
+      sigOk = true;
+    } else if (VERIFY_PUBKEY) {
       const pub = normalizePubkey(VERIFY_PUBKEY);
-      const parsed = parseSignature(receipt.sig_hex);
-      sigOk = parsed.obj.verify(digest, pub);
+      const sigBytes = parseSignatureBytes(receipt.sig_hex);
+      sigOk = secp256k1.verify(sigBytes, digest, pub);
       pubHexUsed = VERIFY_PUBKEY;
     } else {
       // If no VERIFY_PUBKEY provided, accept unsigned for dev but report digest

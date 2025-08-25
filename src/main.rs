@@ -63,20 +63,7 @@ async fn main() -> anyhow::Result<()> {
     let prev_hash_bytes: [u8;32] = hex::decode(prev_hash_hex)?.try_into().unwrap();
     let mut nonce: u32 = 0;
 
-    // Autotuner: sweep a few sizes to target ~300 ms per attempt (configurable)
-    // Set AUTOTUNE_PRESETS="m,n,k;..." or AUTOTUNE_TARGET_MS to customize.
-    let sizes = {
-        if std::env::var("AUTOTUNE_DISABLE").ok().as_deref() == Some("1") {
-            Sizes { m: 1024, n: 1024, k: 1024, batch: 1 }
-        } else {
-            // GPU required for tuning; construct GPU first then tune
-            // Note: we tune after GPU init using the same context
-            // We'll temporarily construct GPU below before tuning
-            // But `gpu` is declared after; so we build GPU, then call autotune
-            // Reordered: initialize GPU first
-            unreachable!()
-        }
-    };
+    // Autotuner: sizes are determined after GPU initialization below.
 
     let gpu = match GpuExec::new() {
         Ok(g) => g,
@@ -104,6 +91,7 @@ async fn main() -> anyhow::Result<()> {
     // Signing key (hex) – in production, derive from peaq DID key or HSM
     let sk_hex = std::env::var("WORKER_SK_HEX").expect("export WORKER_SK_HEX=<hex-privkey>");
     let secp = Secp::from_hex(&sk_hex)?;
+    println!("pubkey(compressed)={}", secp.pubkey_hex_compressed());
 
     loop {
         nonce = nonce.wrapping_add(1);
@@ -123,17 +111,23 @@ async fn main() -> anyhow::Result<()> {
             driver_hint: "OpenCL".into(),
             sig_hex: String::new(),
         };
-        println!("Receipt: {:?}", receipt);
+        // debug: print full receipt if needed
+        if std::env::var("WORKER_DEBUG_RECEIPT").ok().as_deref() == Some("1") {
+            println!("Receipt: {:?}", receipt);
+        }
         // Sign the receipt
         let sig = secp.sign_receipt(&receipt)?;
         receipt.sig_hex = sig;
 
         // Submit to iG3 (replace URL)
         let url = std::env::var("AGGREGATOR_URL").unwrap_or_else(|_| "http://localhost:8080/receipts".into());
-        let resp = reqwest::Client::new().post(url).json(&receipt).send().await?;
-        if !resp.status().is_success() {
-            eprintln!("submit failed: {:?}", resp.text().await?);
+        let resp = reqwest::Client::new().post(&url).json(&receipt).send().await?;
+        let status = resp.status();
+        let body = resp.text().await?;
+        if !status.is_success() {
+            eprintln!("submit failed ({}): {}", status, body);
         } else {
+            println!("submit ok ({}): {}", url, body);
             println!("ok nonce={} ms={} work_root={}", nonce, out.elapsed_ms, work_root_hex);
         }
 
