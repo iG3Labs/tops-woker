@@ -26,9 +26,23 @@ run_benchmark() {
     
     echo -e "${BLUE}Testing: ${config_name}${NC}"
     
-    # Run the worker and capture timing
+    # Run the worker with timeout and capture timing
     local output
-    output=$(bash -c "$env_vars cargo run --release 2>&1" | grep "ms=" | head -1)
+    # Use timeout if available, otherwise use a background process with kill
+    if command -v timeout >/dev/null 2>&1; then
+        # Linux timeout
+        output=$(timeout 15s bash -c "$env_vars cargo run --release 2>&1" | grep "ms=" | head -1)
+    else
+        # macOS fallback - run in background and kill after 15 seconds
+        local temp_file=$(mktemp)
+        bash -c "$env_vars cargo run --release 2>&1" > "$temp_file" 2>&1 &
+        local pid=$!
+        sleep 15
+        kill $pid 2>/dev/null || true
+        wait $pid 2>/dev/null || true
+        output=$(grep "ms=" "$temp_file" | head -1)
+        rm -f "$temp_file"
+    fi
     
     if [[ -n "$output" ]]; then
         local timing=$(echo "$output" | grep -o "ms=[0-9]*" | cut -d'=' -f2)
