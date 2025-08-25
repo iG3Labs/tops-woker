@@ -11,7 +11,54 @@ fn gen_int8_matrix(pr: &mut DPrng, len: usize) -> Vec<i8> {
     v
 }
 
-// Optional lightweight permutation/sign-flip (omitted here for brevity). Add later if needed.
+// Deterministic permutation + sign-mask mixing
+fn sign_flip_i8(value: i8, sign: i8) -> i8 {
+    if sign >= 0 { return value; }
+    if value == i8::MIN { 127 } else { -value }
+}
+
+fn build_permutation_and_signs(k: usize, seed16: [u8;16]) -> (Vec<usize>, Vec<i8>) {
+    // Permute 0..k using StdRng seeded from a 32-byte digest of seed16
+    let mut perm: Vec<usize> = (0..k).collect();
+    let seed32: [u8; 32] = blake3::hash(&seed16).into();
+    perm.shuffle(&mut rand::rngs::StdRng::from_seed(seed32));
+    // Signs in {+1, -1} from DPrng seeded by seed16
+    let mut pr = DPrng::from_seed(seed16);
+    let mut signs = Vec::with_capacity(k);
+    for _ in 0..k {
+        let bit = (pr.next_u32() & 1) as u8;
+        signs.push(if bit == 0 { 1 } else { -1 });
+    }
+    (perm, signs)
+}
+
+fn apply_mix_a_columns(a: &[i8], m: usize, k: usize, perm: &[usize], signs: &[i8]) -> Vec<i8> {
+    let mut out = vec![0i8; m * k];
+    for new_col in 0..k {
+        let src_col = perm[new_col];
+        let s = signs[src_col];
+        for row in 0..m {
+            let src = a[row * k + src_col];
+            out[row * k + new_col] = sign_flip_i8(src, s);
+        }
+    }
+    out
+}
+
+fn apply_mix_w1_rows(w1: &[i8], k: usize, n: usize, perm: &[usize], signs: &[i8]) -> Vec<i8> {
+    let mut out = vec![0i8; k * n];
+    for new_row in 0..k {
+        let src_row = perm[new_row];
+        let s = signs[src_row];
+        let dst_row_off = new_row * n;
+        let src_row_off = src_row * n;
+        for col in 0..n {
+            let v = w1[src_row_off + col];
+            out[dst_row_off + col] = sign_flip_i8(v, s);
+        }
+    }
+    out
+}
 
 pub struct AttemptOutput {
     pub work_root: [u8;32],
@@ -43,6 +90,11 @@ pub fn run_attempt(
     // Scale for requantization; tune later
     let scale_num = 1i32;
     let scale_den = 256i32;
+
+    // Apply deterministic permutation + sign-mask: A's columns and W1's rows
+    let (perm, signs) = build_permutation_and_signs(k, seed);
+    let a = apply_mix_a_columns(&a, m, k, &perm, &signs);
+    let w1 = apply_mix_w1_rows(&w1, k, n, &perm, &signs);
 
     let t0 = std::time::Instant::now();
     let y1 = gpu.gemm_int8_relu_q(&a, &w1, m, n, k, scale_num, scale_den)?;
