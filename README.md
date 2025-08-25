@@ -228,3 +228,173 @@ post(aggregator_url, receipt + sig)
 ### License
 
 Apache-2.0 or MIT (choose one and update if needed).
+
+## What's Next
+
+The tops-worker project is now functional with OpenCL kernel tuning infrastructure in place. Here are the logical next steps for optimization and expansion:
+
+### 1. Performance Benchmarking & Tuning 🚀
+
+Systematically test different kernel configurations to find optimal performance:
+
+```bash
+# Test different local work-group sizes
+WG_M=8 WG_N=8 cargo run --release | head -20
+WG_M=16 WG_N=16 cargo run --release | head -20
+WG_M=32 WG_N=16 cargo run --release | head -20
+WG_M=16 WG_N=32 cargo run --release | head -20
+
+# Test different strip-mining factors
+TK=4 cargo run --release | head -20
+TK=8 cargo run --release | head -20
+TK=16 cargo run --release | head -20
+TK=32 cargo run --release | head -20
+
+# Test combinations
+WG_M=16 WG_N=32 TK=16 cargo run --release | head -20
+```
+
+**Goal**: Find the optimal `WG_M`, `WG_N`, and `TK` values for your specific GPU hardware.
+
+### 2. CUDA Backend Implementation 🎯
+
+The CUDA feature is currently stubbed out. Implement the actual CUDA backend using `cudarc` and `cuBLASLt` for NVIDIA GPUs:
+
+```bash
+# Current status: stub implementation
+cargo run --release --features cuda
+
+# TODO: Implement actual CUDA GEMM in src/gpu_cuda.rs
+```
+
+**Features to implement**:
+
+- Full `cuBLASLt` int8 GEMM with ReLU epilogue
+- Memory management and buffer allocation
+- Error handling and fallback to OpenCL
+- Performance tuning via cuBLASLt configurations
+
+### 3. Advanced Features 🔧
+
+**Multi-GPU Support**:
+
+- Run workers across multiple GPUs simultaneously
+- Dynamic workload distribution
+- GPU health monitoring and failover
+
+**Dynamic Workload Balancing**:
+
+- Adjust matrix sizes based on real-time GPU performance
+- Adaptive autotuning based on hardware capabilities
+- Load balancing across multiple workers
+
+**Memory Optimization**:
+
+- Implement memory pooling and buffer reuse
+- Optimize memory transfers between CPU and GPU
+- Reduce memory fragmentation
+
+**Error Handling & Recovery**:
+
+- Robust error recovery mechanisms
+- GPU fallback strategies
+- Graceful degradation under load
+
+### 4. Production Readiness 🏭
+
+**Configuration Management**:
+
+- Add TOML/YAML config files for different environments
+- Environment-specific tuning parameters
+- Runtime configuration updates
+
+**Monitoring & Metrics**:
+
+- Performance monitoring and health checks
+- GPU utilization metrics
+- Throughput and latency tracking
+- Prometheus/Grafana integration
+
+**Load Testing**:
+
+- Test with multiple workers and high throughput
+- Stress testing under various conditions
+- Performance regression testing
+
+**Security Hardening**:
+
+- Rate limiting and input validation
+- Secure key management
+- Audit logging and compliance
+
+### 5. Documentation & Deployment 📚
+
+**Performance Guide**:
+
+- Document optimal settings for different GPU models
+- Performance comparison across hardware
+- Tuning guidelines and best practices
+
+**Deployment Automation**:
+
+- Docker containers with GPU support
+- Kubernetes manifests and operators
+- CI/CD pipelines for testing
+
+**API Documentation**:
+
+- OpenAPI/Swagger specs for the verifier
+- Client SDKs and examples
+- Integration guides
+
+### 6. Research & Innovation 🔬
+
+**Algorithm Improvements**:
+
+- Explore different quantization schemes
+- Optimize the sampling strategy
+- Research alternative activation functions
+
+**Hardware Optimization**:
+
+- Support for specialized hardware (TPUs, etc.)
+- Optimize for specific GPU architectures
+- Explore mixed precision approaches
+
+**Scalability**:
+
+- Distributed computing across multiple nodes
+- Blockchain integration and consensus
+- Real-time collaboration features
+
+### Getting Started with Next Steps
+
+**For immediate impact**: Start with **Performance Benchmarking** to optimize your current setup:
+
+```bash
+# Create a benchmark script
+cat > benchmark.sh << 'EOF'
+#!/bin/bash
+echo "Benchmarking different configurations..."
+echo "Baseline:"
+cargo run --release | head -5
+
+echo "Testing WG_M=16 WG_N=16:"
+WG_M=16 WG_N=16 cargo run --release | head -5
+
+echo "Testing TK=16:"
+TK=16 cargo run --release | head -5
+
+echo "Testing combined:"
+WG_M=16 WG_N=32 TK=16 cargo run --release | head -5
+EOF
+
+chmod +x benchmark.sh
+./benchmark.sh
+```
+
+**For CUDA development**: Focus on implementing the `src/gpu_cuda.rs` backend.
+
+**For production**: Start with monitoring and configuration management.
+
+Choose the area that aligns with your goals and hardware constraints!
