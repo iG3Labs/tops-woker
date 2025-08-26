@@ -13,7 +13,7 @@ use gpu::GpuExec;
 #[cfg(feature = "cpu-fallback")] use cpu::CpuExec;
 use signing::Secp;
 use config::Config;
-use metrics::{MetricsCollector, ErrorType};
+use metrics::MetricsCollector;
 use error_handling::{ErrorHandler, RateLimiter};
 use health::HealthChecker;
 use server::HealthServer;
@@ -145,21 +145,40 @@ async fn main() -> anyhow::Result<()> {
     };
 
     #[cfg(all(not(feature = "cuda"), not(feature = "cpu-fallback")))]
-    let executor: Box<dyn Executor> = match GpuExec::new() {
-        Ok(g) => Box::new(g),
-        Err(e) => {
-            error_handler.handle_gpu_error(&format!("OpenCL initialization failed: {}", e));
+    let executor: Box<dyn Executor> = {
+        #[cfg(feature = "gpu")]
+        {
+            match GpuExec::new() {
+                Ok(g) => Box::new(g),
+                Err(e) => {
+                    error_handler.handle_gpu_error(&format!("OpenCL initialization failed: {}", e));
+                    eprintln!("[ERROR] No GPU backend available and no CPU fallback enabled.");
+                    return Err(e);
+                }
+            }
+        }
+        #[cfg(not(feature = "gpu"))]
+        {
             eprintln!("[ERROR] No GPU backend available and no CPU fallback enabled.");
-            return Err(e);
+            return Err(anyhow::anyhow!("No execution backend available"));
         }
     };
 
     #[cfg(all(not(feature = "cuda"), feature = "cpu-fallback"))]
-    let executor: Box<dyn Executor> = match GpuExec::new() {
-        Ok(g) => Box::new(g),
-        Err(e) => {
-            error_handler.handle_gpu_error(&format!("OpenCL initialization failed: {}", e));
-            eprintln!("[WARN] GPU not found, falling back to CPU.");
+    let executor: Box<dyn Executor> = {
+        #[cfg(feature = "gpu")]
+        {
+            match GpuExec::new() {
+                Ok(g) => Box::new(g),
+                Err(e) => {
+                    error_handler.handle_gpu_error(&format!("OpenCL initialization failed: {}", e));
+                    eprintln!("[WARN] GPU not found, falling back to CPU.");
+                    Box::new(CpuExec::new()?)
+                }
+            }
+        }
+        #[cfg(not(feature = "gpu"))]
+        {
             Box::new(CpuExec::new()?)
         }
     };

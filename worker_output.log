@@ -298,3 +298,15 @@ submit ok (http://localhost:8081/verify): {"ok":true,"sig_ok":false,"pubkey_hex"
 ok nonce=7 ms=27 work_root=f0245d40d12bee05d3f05cd2d16e9aca7cbd0e776a469feab99cce69710b3f7e
 submit ok (http://localhost:8081/verify): {"ok":true,"sig_ok":false,"pubkey_hex":null,"digest_hex":"5bd931a5fd2fab1bd4c29e2837d446638c7e0d2d09358eed2c6d8b6bdd18cee9"}
 ok nonce=8 ms=27 work_root=1d7c2b4f9ca85b6cab61f0aa4635cc384032185f217fffd56b6abf5165b557de
+submit ok (http://localhost:8081/verify): {"ok":true,"sig_ok":false,"pubkey_hex":null,"digest_hex":"474e417cc62141b3d02901522c2484e53eddf60c6f7233c8b3cacc277ad9fcd1"}
+ok nonce=9 ms=234 work_root=bc06aed8c7469e7fc5522af38e2ca7ed37c2acf87b452cd911c9cc0435225c9f
+submit ok (http://localhost:8081/verify): {"ok":true,"sig_ok":false,"pubkey_hex":null,"digest_hex":"46fd51ef8d204a1c8c7c3caa9bc080fc8d5021f06f50244a760e84e25f84b530"}
+ok nonce=10 ms=53 work_root=2651e1ab94f27747db647bf223e2193d3385951feeab4de1e0b921c838e0c673
+submit ok (http://localhost:8081/verify): {"ok":true,"sig_ok":false,"pubkey_hex":null,"digest_hex":"febddf131638193ec394107cfd18aa251ba8ff235dcce79f64d88d3e876008bd"}
+ok nonce=11 ms=34 work_root=9888f3ca2ff3427fb5fb29cee98a7ecaef17308292557be2b8edc66bcdf0c51b
+submit ok (http://localhost:8081/verify): {"ok":true,"sig_ok":false,"pubkey_hex":null,"digest_hex":"1137c11ca8d306106cec4a5cec3a4b62e619bbe4e6e819fd014009a3b8a376ef"}
+ok nonce=12 ms=25 work_root=5ac71ec9d079c071aaf9e581d0bfccd1ecf2f86b0f9f9fe5d25b5893ec34ffea
+submit ok (http://localhost:8081/verify): {"ok":true,"sig_ok":false,"pubkey_hex":null,"digest_hex":"db8093fa4eb6a7f87cc3c05269bc3a31984544cd22bc79a609c5ce83a9109517"}
+ok nonce=13 ms=27 work_root=7edd9dbe3caef46da93fe38d8fff9d17c41b86c8a3b9b985d65fb088db2384d7
+submit ok (http://localhost:8081/verify): {"ok":true,"sig_ok":false,"pubkey_hex":null,"digest_hex":"01ec2eb8f1bcd826a8ce3dd308c8e3cbe417642bc8281b780de22e0a21173b0e"}
+ok nonce=14 ms=33 work_root=3fc2849cbd0f4d44c26e85b16d0b3eca8b47da7a7ae71050fd904a71bba6fbd3

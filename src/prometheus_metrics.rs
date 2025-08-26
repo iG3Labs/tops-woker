@@ -1,4 +1,4 @@
-use std::sync::Arc;
+
 use prometheus_client::{
     encoding::text::encode,
     metrics::{counter::Counter, gauge::Gauge, histogram::Histogram},

@@ -2,7 +2,7 @@ use blake3::Hasher;
 use hex::ToHex;
 use k256::ecdsa::{SigningKey, Signature};
 use k256::ecdsa::signature::hazmat::PrehashSigner;
-use k256::elliptic_curve::sec1::ToEncodedPoint;
+
 use sha2::Digest;
 use crate::types::WorkReceipt;
 
