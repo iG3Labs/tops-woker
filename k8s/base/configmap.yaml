@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tops-worker-config
+data:
+  AGGREGATOR_URL: "http://tops-worker-verifier:8081/verify"
+  METRICS_ENABLED: "1"
+  AUTOTUNE_TARGET_MS: "300"
+  RATE_LIMIT_PER_SECOND: "10"
+  MAX_CONCURRENT_REQUESTS: "5"
+  CPU_FALLBACK: "0"
+  AUTOTUNE_DISABLE: "0"
+  WORKER_DEBUG_RECEIPT: "0"

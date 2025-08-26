@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tops-worker-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.tops-worker.example.com
+    secretName: tops-worker-tls
+  rules:
+  - host: api.tops-worker.example.com
+    http:
+      paths:
+      - path: /worker
+        pathType: Prefix
+        backend:
+          service:
+            name: tops-worker-service
+            port:
+              number: 8082
+      - path: /verifier
+        pathType: Prefix
+        backend:
+          service:
+            name: tops-worker-verifier
+            port:
+              number: 8081

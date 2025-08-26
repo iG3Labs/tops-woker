@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tops-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tops-worker
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: tops-worker
+        component: worker
+    spec:
+      containers:
+      - name: tops-worker
+        image: ghcr.io/ig3labs/tops-worker:latest-gpu
+        ports:
+        - containerPort: 8082
+          name: http
+        env:
+        - name: WORKER_SK_HEX
+          valueFrom:
+            secretKeyRef:
+              name: tops-worker-secrets
+              key: WORKER_SK_HEX_PLAIN
+        - name: AGGREGATOR_URL
+          valueFrom:
+            configMapKeyRef:
+              name: tops-worker-config
+              key: AGGREGATOR_URL
+        - name: METRICS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: tops-worker-config
+              key: METRICS_ENABLED
+        - name: AUTOTUNE_TARGET_MS
+          valueFrom:
+            configMapKeyRef:
+              name: tops-worker-config
+              key: AUTOTUNE_TARGET_MS
+        - name: RATE_LIMIT_PER_SECOND
+          valueFrom:
+            configMapKeyRef:
+              name: tops-worker-config
+              key: RATE_LIMIT_PER_SECOND
+        - name: MAX_CONCURRENT_REQUESTS
+          valueFrom:
+            configMapKeyRef:
+              name: tops-worker-config
+              key: MAX_CONCURRENT_REQUESTS
+        - name: CPU_FALLBACK
+          valueFrom:
+            configMapKeyRef:
+              name: tops-worker-config
+              key: CPU_FALLBACK
+        - name: AUTOTUNE_DISABLE
+          valueFrom:
+            configMapKeyRef:
+              name: tops-worker-config
+              key: AUTOTUNE_DISABLE
+        - name: WORKER_DEBUG_RECEIPT
+          valueFrom:
+            configMapKeyRef:
+              name: tops-worker-config
+              key: WORKER_DEBUG_RECEIPT
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      # GPU support (if available)
+      # nodeSelector:
+      #   nvidia.com/gpu: "true"
+      # tolerations:
+      # - key: nvidia.com/gpu
+      #   operator: Exists
+      #   effect: NoSchedule

@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: tops-worker-production
+
+resources:
+  - ../../base
+
+patches:
+  - path: replicas-patch.yaml
+    target:
+      kind: Deployment
+      name: tops-worker
+  - path: replicas-patch.yaml
+    target:
+      kind: Deployment
+      name: tops-worker-verifier
+
+configMapGenerator:
+  - name: tops-worker-config
+    behavior: merge
+    literals:
+      - AGGREGATOR_URL=http://tops-worker-verifier:8081/verify
+      - METRICS_ENABLED=1
+      - AUTOTUNE_TARGET_MS=300
+      - RATE_LIMIT_PER_SECOND=50
+      - MAX_CONCURRENT_REQUESTS=20
+      - CPU_FALLBACK=0
+      - AUTOTUNE_DISABLE=0
+      - WORKER_DEBUG_RECEIPT=0
+
+images:
+  - name: ghcr.io/ig3labs/tops-worker
+    newTag: v1.0.0-gpu
+  - name: ghcr.io/ig3labs/tops-worker
+    newTag: v1.0.0-verifier
