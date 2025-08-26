@@ -1,0 +1,56 @@
+groups:
+  - name: tops-worker
+    rules:
+      - alert: HighErrorRate
+        expr: (rate(tops_worker_failed_attempts_total[5m]) / rate(tops_worker_total_attempts_total[5m])) * 100 > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }}%"
+
+      - alert: WorkerDown
+        expr: tops_worker_uptime_seconds == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker is down"
+          description: "Worker has been down for more than 1 minute"
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, tops_worker_attempt_duration_ms_bucket) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}ms"
+
+      - alert: ConsecutiveFailures
+        expr: tops_worker_consecutive_failures > 10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High consecutive failures"
+          description: "{{ $value }} consecutive failures detected"
+
+      - alert: LowSuccessRate
+        expr: tops_worker_success_rate / 100 < 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low success rate"
+          description: "Success rate is {{ $value }}%"
+
+      - alert: NoSuccessfulAttempts
+        expr: rate(tops_worker_successful_attempts_total[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No successful attempts"
+          description: "No successful attempts in the last 5 minutes"

@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# Rust
+target/
+Cargo.lock
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+*.log
+worker_output.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.sh
+*_test.sh
+benchmark_*.sh
+
+# Temporary files
+*.tmp
+*.temp
+
+# Node.js verifier (separate container)
+verifier/
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+
+# Environment files
+.env
+.env.local
+.env.production

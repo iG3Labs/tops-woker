@@ -1,0 +1,145 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "tops-worker Dashboard",
+    "tags": ["tops-worker", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Success Rate",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "tops_worker_success_rate / 100",
+            "legendFormat": "Success Rate (%)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 80 },
+                { "color": "green", "value": 95 }
+              ]
+            }
+          }
+        },
+        "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 }
+      },
+      {
+        "id": 2,
+        "title": "Throughput (Attempts/sec)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(tops_worker_successful_attempts_total[1m])",
+            "legendFormat": "Successful Attempts/sec"
+          },
+          {
+            "expr": "rate(tops_worker_failed_attempts_total[1m])",
+            "legendFormat": "Failed Attempts/sec"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 6, "y": 0 }
+      },
+      {
+        "id": 3,
+        "title": "Response Time (95th percentile)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, tops_worker_attempt_duration_ms_bucket)",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.5, tops_worker_attempt_duration_ms_bucket)",
+            "legendFormat": "Median"
+          }
+        ],
+        "yAxes": [{ "label": "Response Time (ms)", "min": 0 }],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+      },
+      {
+        "id": 4,
+        "title": "Total Attempts",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "tops_worker_total_attempts_total",
+            "legendFormat": "Total Attempts"
+          }
+        ],
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 }
+      },
+      {
+        "id": 5,
+        "title": "Uptime",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "tops_worker_uptime_seconds / 3600",
+            "legendFormat": "Uptime (hours)"
+          }
+        ],
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 }
+      },
+      {
+        "id": 6,
+        "title": "Error Counts",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "tops_worker_gpu_errors_total",
+            "legendFormat": "GPU Errors"
+          },
+          {
+            "expr": "tops_worker_network_errors_total",
+            "legendFormat": "Network Errors"
+          },
+          {
+            "expr": "tops_worker_signature_errors_total",
+            "legendFormat": "Signature Errors"
+          },
+          {
+            "expr": "tops_worker_validation_errors_total",
+            "legendFormat": "Validation Errors"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+      },
+      {
+        "id": 7,
+        "title": "Consecutive Failures",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "tops_worker_consecutive_failures",
+            "legendFormat": "Consecutive Failures"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 5 },
+                { "color": "red", "value": 10 }
+              ]
+            }
+          }
+        },
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 16 }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "5s"
+  }
+}

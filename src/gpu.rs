@@ -1,13 +1,19 @@
+#[cfg(feature = "gpu")]
 use anyhow::{Result, anyhow};
+#[cfg(feature = "gpu")]
 use ocl::{Buffer, Context, Device, Kernel, Platform, Program, Queue};
+#[cfg(feature = "gpu")]
 use crate::cl_kernels::GEMM_INT8;
+use crate::types::Sizes;
 
+#[cfg(feature = "gpu")]
 pub struct GpuExec {
     ctx: Context,
     q: Queue,
     prog: Program,
 }
 
+#[cfg(feature = "gpu")]
 impl GpuExec {
     pub fn new() -> Result<Self> {
         // Choose a GPU device if available, else error (caller may CPU-fallback)
@@ -69,5 +75,20 @@ impl GpuExec {
         let mut y = vec![0i8; len_y];
         buf_y.read(&mut y).enq()?;
         Ok(y)
+    }
+
+    pub fn run_gemm(&self, a: &[i8], b: &[i8], sizes: &Sizes) -> anyhow::Result<Vec<i8>> {
+        let result = self.gemm_int8_relu_q(a, b, sizes.m, sizes.n, sizes.k, 1, 1)?;
+        Ok(result)
+    }
+}
+
+#[cfg(not(feature = "gpu"))]
+pub struct GpuExec;
+
+#[cfg(not(feature = "gpu"))]
+impl GpuExec {
+    pub fn new() -> anyhow::Result<Self> {
+        Err(anyhow::anyhow!("GPU support not compiled in"))
     }
 }

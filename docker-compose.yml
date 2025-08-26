@@ -1,0 +1,104 @@
+version: "3.8"
+
+services:
+  # tops-worker service
+  tops-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    container_name: tops-worker
+    environment:
+      # Required environment variables
+      - WORKER_SK_HEX=${WORKER_SK_HEX:-7b706b652278aba9b01dd473e026fd0baf215fd5afbf92d860b03fa661e07dc2}
+      - AGGREGATOR_URL=http://verifier:8081/verify
+
+      # Optional configuration
+      - METRICS_ENABLED=${METRICS_ENABLED:-1}
+      - WORKER_DEBUG_RECEIPT=${WORKER_DEBUG_RECEIPT:-0}
+      - AUTOTUNE_TARGET_MS=${AUTOTUNE_TARGET_MS:-300}
+      - AUTOTUNE_DISABLE=${AUTOTUNE_DISABLE:-1}
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+      - RATE_LIMIT_PER_SECOND=${RATE_LIMIT_PER_SECOND:-10}
+      - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-5}
+
+      # CPU mode (disable GPU features)
+      - CPU_FALLBACK=1
+    ports:
+      - "8082:8082" # Health and metrics endpoint
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - verifier
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - tops-network
+
+  # Node.js verifier service
+  verifier:
+    build:
+      context: ./verifier
+      dockerfile: Dockerfile
+    container_name: tops-verifier
+    environment:
+      - VERIFY_PUBKEY=${VERIFY_PUBKEY:-03bedebd53da4cdd26fa6627da566bb317789462d443cbe371b558ce0755226db4}
+      - PORT=8081
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    networks:
+      - tops-network
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: tops-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
+    networks:
+      - tops-network
+    profiles:
+      - monitoring
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tops-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    restart: unless-stopped
+    networks:
+      - tops-network
+    profiles:
+      - monitoring
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  tops-network:
+    driver: bridge
