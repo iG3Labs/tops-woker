@@ -11,3 +11,4 @@ pub mod metrics;
 pub mod error_handling;
 pub mod health;
 pub mod server;
+pub mod prometheus_metrics;

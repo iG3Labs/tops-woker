@@ -1,5 +1,6 @@
 mod types; mod prng; mod cl_kernels; mod gpu; mod attempt; mod signing;
 mod config; mod metrics; mod error_handling; mod health; mod server;
+mod prometheus_metrics;
 #[cfg(feature = "cuda")] mod gpu_cuda;
 
 use std::sync::Arc;
@@ -14,6 +15,7 @@ use metrics::{MetricsCollector, ErrorType};
 use error_handling::{ErrorHandler, RateLimiter};
 use health::HealthChecker;
 use server::HealthServer;
+use prometheus_metrics::PrometheusMetrics;
 
 fn parse_target_ms() -> u64 {
     std::env::var("AUTOTUNE_TARGET_MS")
@@ -79,6 +81,9 @@ async fn main() -> anyhow::Result<()> {
     // Initialize metrics collector
     let metrics = Arc::new(MetricsCollector::new());
     
+    // Initialize Prometheus metrics
+    let prometheus_metrics = Arc::new(PrometheusMetrics::new());
+    
     // Initialize error handler
     let error_handler = ErrorHandler::new(Arc::clone(&metrics))
         .with_retry_config(error_handling::RetryConfig {
@@ -96,7 +101,7 @@ async fn main() -> anyhow::Result<()> {
     
     // Start health server if metrics are enabled
     let health_server_handle = if config.metrics_enabled {
-        let health_server = HealthServer::new(Arc::clone(&health_checker), 8082);
+        let health_server = HealthServer::new(Arc::clone(&health_checker), Arc::clone(&prometheus_metrics), 8082);
         let handle = tokio::spawn(async move {
             if let Err(e) = health_server.start().await {
                 eprintln!("[health] Health server error: {}", e);
@@ -168,6 +173,7 @@ async fn main() -> anyhow::Result<()> {
     // Print startup information
     println!("[startup] Worker initialized successfully");
     println!("[startup] Health endpoints available at http://localhost:8082");
+    println!("[startup] Prometheus metrics available at http://localhost:8082/prometheus");
     println!("[startup] Starting main loop...");
 
     loop {
@@ -229,11 +235,13 @@ async fn main() -> anyhow::Result<()> {
                 if status.is_success() {
                     // Record successful attempt
                     metrics.record_attempt(out.elapsed_ms, true);
+                    prometheus_metrics.record_attempt(out.elapsed_ms, true);
                     println!("submit ok ({}): {}", url, body);
                     println!("ok nonce={} ms={} work_root={}", nonce, out.elapsed_ms, work_root_hex);
                 } else {
                     // Record failed attempt
                     metrics.record_attempt(out.elapsed_ms, false);
+                    prometheus_metrics.record_attempt(out.elapsed_ms, false);
                     error_handler.handle_network_error(&format!("HTTP {}: {}", status, body));
                     eprintln!("submit failed ({}): {}", status, body);
                 }
@@ -241,6 +249,7 @@ async fn main() -> anyhow::Result<()> {
             Err(e) => {
                 // Record failed attempt
                 metrics.record_attempt(out.elapsed_ms, false);
+                prometheus_metrics.record_attempt(out.elapsed_ms, false);
                 error_handler.handle_network_error(&format!("Network error: {}", e));
                 eprintln!("submit failed: {}", e);
             }

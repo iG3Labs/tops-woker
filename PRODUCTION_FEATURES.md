@@ -26,33 +26,40 @@ The tops-worker now includes a comprehensive production stack:
 The worker now supports comprehensive configuration through environment variables:
 
 #### **Required Configuration**
+
 - `WORKER_SK_HEX` - 64-character hex private key for signing receipts
 
 #### **Worker Configuration**
+
 - `DEVICE_DID` - Device identifier (default: `did:peaq:DEVICE123`)
 - `AGGREGATOR_URL` - URL for submitting receipts (default: `http://localhost:8081/verify`)
 
 #### **Performance Tuning**
+
 - `AUTOTUNE_TARGET_MS` - Target execution time in milliseconds (default: 300)
 - `AUTOTUNE_PRESETS` - Matrix size presets in format `"m1,n1,k1;m2,n2,k2"` (default: `"512,512,512;1024,1024,1024"`)
 - `AUTOTUNE_DISABLE` - Set to `1` to disable autotuning (default: disabled)
 
 #### **OpenCL Kernel Tuning**
+
 - `WG_M` - Work group size for M dimension
-- `WG_N` - Work group size for N dimension  
+- `WG_N` - Work group size for N dimension
 - `TK` - Tile size for K dimension
 
 #### **Monitoring & Logging**
+
 - `WORKER_DEBUG_RECEIPT` - Set to `1` to print full receipts (default: disabled)
 - `LOG_LEVEL` - Logging level (default: `info`)
 - `METRICS_ENABLED` - Enable metrics collection and health server (default: enabled)
 
 #### **Error Handling & Recovery**
+
 - `MAX_RETRIES` - Maximum retry attempts for failed operations (default: 3)
 - `RETRY_DELAY_MS` - Delay between retries in milliseconds (default: 1000)
 - `HEALTH_CHECK_INTERVAL_MS` - Health check interval (default: 30000)
 
 #### **Security & Rate Limiting**
+
 - `RATE_LIMIT_PER_SECOND` - Maximum requests per second (default: 10)
 - `MAX_CONCURRENT_REQUESTS` - Maximum concurrent operations (default: 5)
 
@@ -70,6 +77,7 @@ ConfigError::ValidationError("WORKER_SK_HEX must be 64 characters".to_string())
 ## 📊 **2. Metrics Collection**
 
 ### **Performance Metrics**
+
 - `total_attempts` - Total number of attempts made
 - `successful_attempts` - Number of successful attempts
 - `failed_attempts` - Number of failed attempts
@@ -80,12 +88,14 @@ ConfigError::ValidationError("WORKER_SK_HEX must be 64 characters".to_string())
 - `receipts_per_second` - Successful receipts per second
 
 ### **Error Metrics**
+
 - `gpu_errors` - GPU-related errors
 - `network_errors` - Network communication errors
 - `signature_errors` - Cryptographic signing errors
 - `validation_errors` - Data validation errors
 
 ### **Health Metrics**
+
 - `uptime_seconds` - Worker uptime
 - `last_successful_attempt` - Timestamp of last success
 - `consecutive_failures` - Number of consecutive failures
@@ -103,7 +113,7 @@ metrics.record_error(ErrorType::Network);
 
 // Get current metrics
 let current_metrics = metrics.get_metrics();
-println!("Success rate: {:.2}%", 
+println!("Success rate: {:.2}%",
     (current_metrics.successful_attempts as f64 / current_metrics.total_attempts as f64) * 100.0);
 ```
 
@@ -308,33 +318,33 @@ spec:
         app: tops-worker
     spec:
       containers:
-      - name: tops-worker
-        image: tops-worker:latest
-        env:
-        - name: WORKER_SK_HEX
-          valueFrom:
-            secretKeyRef:
-              name: worker-secrets
-              key: worker-sk-hex
-        - name: AGGREGATOR_URL
-          value: "https://aggregator.example.com/verify"
-        - name: METRICS_ENABLED
-          value: "1"
-        ports:
-        - containerPort: 8082
-          name: health
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8082
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8082
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: tops-worker
+          image: tops-worker:latest
+          env:
+            - name: WORKER_SK_HEX
+              valueFrom:
+                secretKeyRef:
+                  name: worker-secrets
+                  key: worker-sk-hex
+            - name: AGGREGATOR_URL
+              value: "https://aggregator.example.com/verify"
+            - name: METRICS_ENABLED
+              value: "1"
+          ports:
+            - containerPort: 8082
+              name: health
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ```
 
 ### **Monitoring Integration**
@@ -365,16 +375,19 @@ The health endpoints can be easily integrated with monitoring systems:
 ## 🔒 **9. Security Features**
 
 ### **Input Validation**
+
 - Environment variable validation
 - Configuration parameter bounds checking
 - URL format validation
 
 ### **Rate Limiting**
+
 - Prevents DoS attacks
 - Protects external services
 - Configurable limits
 
 ### **Error Handling**
+
 - No sensitive data in error messages
 - Graceful degradation
 - Circuit breaker protection
@@ -382,6 +395,7 @@ The health endpoints can be easily integrated with monitoring systems:
 ## 🎯 **10. Future Enhancements**
 
 ### **Planned Features**
+
 - [ ] Structured logging with JSON format
 - [ ] Prometheus metrics export
 - [ ] Configuration hot-reloading
@@ -392,6 +406,7 @@ The health endpoints can be easily integrated with monitoring systems:
 - [ ] Health check dependencies
 
 ### **Integration Opportunities**
+
 - [ ] Kubernetes operator
 - [ ] Helm charts
 - [ ] Terraform modules
@@ -409,4 +424,4 @@ The health endpoints can be easily integrated with monitoring systems:
 
 ---
 
-*This document covers the production features implemented in tops-worker v0.1.0. For questions or contributions, please refer to the main project documentation.*
+_This document covers the production features implemented in tops-worker v0.1.0. For questions or contributions, please refer to the main project documentation._

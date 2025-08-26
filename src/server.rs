@@ -3,17 +3,20 @@ use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::health::{HealthChecker, HealthResponse, MetricsResponse};
 use crate::config::Config;
+use crate::prometheus_metrics::{PrometheusMetrics, get_metric_help_text};
 use serde_json;
 
 pub struct HealthServer {
     health_checker: Arc<HealthChecker>,
+    prometheus_metrics: Arc<PrometheusMetrics>,
     port: u16,
 }
 
 impl HealthServer {
-    pub fn new(health_checker: Arc<HealthChecker>, port: u16) -> Self {
+    pub fn new(health_checker: Arc<HealthChecker>, prometheus_metrics: Arc<PrometheusMetrics>, port: u16) -> Self {
         Self {
             health_checker,
+            prometheus_metrics,
             port,
         }
     }
@@ -25,6 +28,7 @@ impl HealthServer {
         loop {
             let (mut socket, _) = listener.accept().await?;
             let health_checker = Arc::clone(&self.health_checker);
+            let prometheus_metrics = Arc::clone(&self.prometheus_metrics);
             
             tokio::spawn(async move {
                 let mut buffer = [0; 1024];
@@ -35,7 +39,7 @@ impl HealthServer {
                 };
                 
                 let request = String::from_utf8_lossy(&buffer[..n]);
-                let response = Self::handle_request(&request, &health_checker).await;
+                let response = Self::handle_request(&request, &health_checker, &prometheus_metrics).await;
                 
                 if let Err(_) = socket.write_all(response.as_bytes()).await {
                     return;
@@ -44,7 +48,7 @@ impl HealthServer {
         }
     }
     
-    async fn handle_request(request: &str, health_checker: &HealthChecker) -> String {
+    async fn handle_request(request: &str, health_checker: &HealthChecker, prometheus_metrics: &PrometheusMetrics) -> String {
         let lines: Vec<&str> = request.lines().collect();
         if lines.is_empty() {
             return Self::error_response(400, "Bad Request");
@@ -75,6 +79,16 @@ impl HealthServer {
                     Err(_) => Self::error_response(500, "Internal Server Error"),
                 }
             }
+            ("GET", "/prometheus") => {
+                // Update Prometheus metrics from current metrics
+                let current_metrics = health_checker.get_metrics();
+                prometheus_metrics.update_from_metrics(&current_metrics.metrics);
+                
+                match prometheus_metrics.export_metrics() {
+                    Ok(metrics_text) => Self::text_response(200, &metrics_text),
+                    Err(_) => Self::error_response(500, "Internal Server Error"),
+                }
+            }
             ("GET", "/status") => {
                 let status = health_checker.get_detailed_status();
                 match serde_json::to_string(&status) {
@@ -94,6 +108,7 @@ impl HealthServer {
         .endpoint h3 { margin: 0 0 10px 0; }
         .endpoint a { color: #0066cc; text-decoration: none; }
         .endpoint a:hover { text-decoration: underline; }
+        .prometheus { background: #e8f4f8; border-left: 4px solid #0066cc; }
     </style>
 </head>
 <body>
@@ -104,7 +119,11 @@ impl HealthServer {
     </div>
     <div class="endpoint">
         <h3><a href="/metrics">/metrics</a></h3>
-        <p>Detailed performance metrics and statistics</p>
+        <p>Detailed performance metrics and statistics (JSON)</p>
+    </div>
+    <div class="endpoint prometheus">
+        <h3><a href="/prometheus">/prometheus</a></h3>
+        <p>Prometheus-formatted metrics for monitoring systems</p>
     </div>
     <div class="endpoint">
         <h3><a href="/status">/status</a></h3>
@@ -122,6 +141,15 @@ impl HealthServer {
     fn json_response(status: u16, body: &str) -> String {
         format!(
             "HTTP/1.1 {} OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+            status,
+            body.len(),
+            body
+        )
+    }
+    
+    fn text_response(status: u16, body: &str) -> String {
+        format!(
+            "HTTP/1.1 {} OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}",
             status,
             body.len(),
             body
